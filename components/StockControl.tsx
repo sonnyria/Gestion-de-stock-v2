@@ -30,7 +30,6 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
       <div className="flex items-start justify-between mb-8">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-4xl">{product.emoji || '📦'}</span>
             <h2 className="text-3xl font-bold leading-tight">{product.name}</h2>
           </div>
           {/* Category display removed */}

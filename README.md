@@ -15,6 +15,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/1vw-ZsxB_qxKZRDpxeHTZYW
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. (Optional) If you plan to use an external AI service for product suggestions in future, set an API key in [.env.local](.env.local) or via your preferred method. The app no longer requires a key for barcode scanning.
 3. Run the app:
    `npm run dev`
+
+Note: Barcode scanning uses the browser's HTML5 Barcode Detection API (`BarcodeDetector`) and falls back to a JavaScript decoder (dynamically loaded ZXing via CDN) when unavailable — no AI model is required for barcode recognition.

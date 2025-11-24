@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Product, ProductEnhancement } from '../types.ts';
-import { enhanceProductInfo } from '../services/geminiService.ts';
+import React, { useState } from 'react';
+import { Product } from '../types.ts';
 
 interface ProductFormProps {
   barcode: string;
@@ -11,25 +10,6 @@ interface ProductFormProps {
 const ProductForm: React.FC<ProductFormProps> = ({ barcode, onSave, onCancel }) => {
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState(1);
-  const [category, setCategory] = useState('Divers'); // Kept internally for data consistency but hidden
-  const [emoji, setEmoji] = useState('📦');
-  const [isLoadingAI, setIsLoadingAI] = useState(false);
-
-  // Auto-enhance when name changes significantly (debounced ideally, but simplified for button trigger here)
-  const handleAIEnhance = async () => {
-    if (name.length < 3) return;
-    setIsLoadingAI(true);
-    try {
-      const info: ProductEnhancement = await enhanceProductInfo(name);
-      setCategory(info.category);
-      setEmoji(info.emoji);
-      if (info.suggestedName) setName(info.suggestedName);
-    } catch (e) {
-      console.error("AI Enhancement failed", e);
-    } finally {
-      setIsLoadingAI(false);
-    }
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,8 +19,6 @@ const ProductForm: React.FC<ProductFormProps> = ({ barcode, onSave, onCancel }) 
       barcode,
       name,
       quantity,
-      category,
-      emoji,
       lastUpdated: Date.now()
     };
     onSave(newProduct);
@@ -69,54 +47,35 @@ const ProductForm: React.FC<ProductFormProps> = ({ barcode, onSave, onCancel }) 
               className="flex-1 bg-gray-800 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none transition"
               autoFocus
             />
-            <button
-              type="button"
-              onClick={handleAIEnhance}
-              disabled={isLoadingAI || name.length < 3}
-              className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white p-3 rounded-lg transition"
-              title="Compléter avec IA"
-            >
-              {isLoadingAI ? '✨...' : '✨ IA'}
-            </button>
           </div>
-          <p className="text-xs text-gray-500 mt-1">Utilisez le bouton IA pour suggérer une icône.</p>
         </div>
 
         <div className="flex gap-4">
-             <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-400 mb-1">Icône</label>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-400 mb-1">Stock Initial</label>
+            <div className="flex items-center justify-between bg-gray-800 rounded-lg border border-gray-700 p-1 w-full h-[52px]">
+              <button
+                type="button"
+                onClick={() => setQuantity(Math.max(0, quantity - 1))}
+                className="w-10 h-full flex items-center justify-center text-gray-300 hover:bg-gray-700 rounded"
+              >
+                -
+              </button>
               <input
-                type="text"
-                value={emoji}
-                onChange={(e) => setEmoji(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-center text-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                type="number"
+                value={quantity}
+                onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
+                className="w-12 text-center bg-transparent font-bold outline-none appearance-none"
               />
+              <button
+                type="button"
+                onClick={() => setQuantity(quantity + 1)}
+                className="w-10 h-full flex items-center justify-center text-gray-300 hover:bg-gray-700 rounded"
+              >
+                +
+              </button>
             </div>
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-400 mb-1">Stock Initial</label>
-              <div className="flex items-center justify-between bg-gray-800 rounded-lg border border-gray-700 p-1 w-full h-[52px]">
-                <button
-                  type="button"
-                  onClick={() => setQuantity(Math.max(0, quantity - 1))}
-                  className="w-10 h-full flex items-center justify-center text-gray-300 hover:bg-gray-700 rounded"
-                >
-                  -
-                </button>
-                <input
-                  type="number"
-                  value={quantity}
-                  onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
-                  className="w-12 text-center bg-transparent font-bold outline-none appearance-none"
-                />
-                 <button
-                  type="button"
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="w-10 h-full flex items-center justify-center text-gray-300 hover:bg-gray-700 rounded"
-                >
-                  +
-                </button>
-              </div>
-            </div>
+          </div>
         </div>
 
         <div className="flex-1"></div>

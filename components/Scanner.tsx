@@ -1,6 +1,6 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { readBarcodeWithGemini } from '../services/geminiService.ts';
+import { readBarcodeFromImage } from '../services/barcodeService.ts';
 
 interface ScannerProps {
   onScan: (barcode: string) => void;
@@ -117,8 +117,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
     // Don't clear error here to avoid flickering if there is a persistent hardware error
     
     try {
-      // Use Gemini to read the barcode
-      const barcode = await readBarcodeWithGemini(imageSrc);
+    // Use local HTML5-based barcode detection (BarcodeDetector + ZXing fallback)
+    const barcode = await readBarcodeFromImage(imageSrc);
       
       if (barcode) {
         onScan(barcode);
@@ -243,8 +243,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
         </div>
 
         <div className="absolute right-8 w-24 text-right text-xs text-gray-500">
-          <span className="block text-blue-400 font-bold text-lg">IA</span>
-          Gemini Vision
+          <span className="block text-blue-400 font-bold text-lg">Lecteur</span>
+          Détection HTML5
         </div>
       </div>
       

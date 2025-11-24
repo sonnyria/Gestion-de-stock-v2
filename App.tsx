@@ -15,7 +15,6 @@ const App: React.FC = () => {
   // Settings State
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(3);
   const [showSettings, setShowSettings] = useState(false);
-  const [apiKey, setApiKey] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Import State
@@ -47,10 +46,6 @@ const App: React.FC = () => {
       }
     }
 
-    const savedApiKey = localStorage.getItem('gemini_api_key');
-    if (savedApiKey) {
-      setApiKey(savedApiKey);
-    }
 
     // Check if device is iOS and running in browser (not standalone)
     const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
@@ -71,10 +66,7 @@ const App: React.FC = () => {
     localStorage.setItem('stock_settings', JSON.stringify({ threshold: lowStockThreshold }));
   }, [lowStockThreshold]);
 
-  const handleSaveApiKey = (val: string) => {
-    setApiKey(val);
-    localStorage.setItem('gemini_api_key', val);
-  };
+  // Gemini API removed - no API key handling required
 
   // --- Backup / Restore Logic ---
 
@@ -338,33 +330,7 @@ const App: React.FC = () => {
               Configuration
             </h3>
             
-            {/* Gemini API Key */}
-            <div className="mb-6">
-              <label className="block text-sm font-bold text-blue-400 mb-2">Clé API Gemini (Requise)</label>
-              <input 
-                type="password"
-                value={apiKey}
-                onChange={(e) => handleSaveApiKey(e.target.value)}
-                placeholder="Collez votre clé AI Studio ici"
-                className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
-              />
-              <div className="flex justify-between items-center mt-2">
-                  <p className="text-[10px] text-gray-500">
-                    Stockée localement sur l'appareil.
-                  </p>
-                  <a 
-                    href="https://aistudio.google.com/app/apikey" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-400 hover:text-blue-300 underline flex items-center gap-1"
-                  >
-                    Obtenir une clé
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </a>
-              </div>
-            </div>
+            {/* Gemini API and AI enhancements have been removed */}
 
             <hr className="border-gray-700 mb-6" />
 
@@ -439,18 +405,13 @@ const App: React.FC = () => {
          {/* Settings Button (Left) */}
          <button 
           onClick={() => setShowSettings(true)}
-          className={`p-2 rounded-full transition relative ${!apiKey ? 'bg-red-900/30 text-red-400 animate-pulse' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+          className={`p-2 rounded-full transition relative bg-gray-800 text-gray-400 hover:text-white`}
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
-          {!apiKey && (
-             <span className="absolute top-0 right-0 flex h-3 w-3">
-               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-               <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-             </span>
-          )}
+          {/* No API key required */}
         </button>
 
         <div className="text-center">
@@ -524,7 +485,7 @@ const App: React.FC = () => {
                   <div className="flex items-center gap-3">
                     {/* Emoji Icon */}
                     <div className="w-10 h-10 rounded-lg bg-gray-700/50 flex flex-shrink-0 items-center justify-center text-xl">
-                      {item.emoji || '📦'}
+                      📦
                     </div>
                     
                     {/* Name Input (Direct Edit) */}
@@ -598,14 +559,7 @@ const App: React.FC = () => {
           
           {/* Scan Button */}
           <button
-            onClick={() => {
-               if (!apiKey) {
-                 setShowSettings(true);
-                 alert("Veuillez d'abord renseigner votre clé API Gemini.");
-               } else {
-                 setView(ViewState.SCANNER);
-               }
-            }}
+            onClick={() => setView(ViewState.SCANNER)}
             className="h-14 w-14 rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-600/30 transition transform active:scale-95"
             aria-label="Scanner"
           >

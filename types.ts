@@ -2,8 +2,6 @@ export interface Product {
   barcode: string;
   name: string;
   quantity: number;
-  category?: string;
-  emoji?: string;
   lastUpdated: number; // Timestamp
 }
 
@@ -19,8 +17,4 @@ export interface ScanResult {
   error?: string;
 }
 
-export interface ProductEnhancement {
-  category: string;
-  emoji: string;
-  suggestedName?: string;
-}
+// ProductEnhancement and AI-based enhancements were removed. Keep the file lean.

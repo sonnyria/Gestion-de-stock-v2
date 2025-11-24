@@ -6,8 +6,8 @@ const urlsToCache = [
   './App.tsx',
   './types.ts',
   './manifest.json',
-  './services/geminiService.ts',
   './components/Scanner.tsx',
+  './services/barcodeService.ts',
   './components/ProductForm.tsx',
   './components/StockControl.tsx'
 ];
@@ -16,6 +16,7 @@ const urlsToCache = [
 const CDNs = [
   'cdn.tailwindcss.com',
   'aistudiocdn.com',
+  'cdn.jsdelivr.net',
   'img.icons8.com',
   'fonts.googleapis.com',
   'fonts.gstatic.com',
@@ -38,7 +39,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // 1. Ignorer les appels API (Gemini, Google APIs) pour qu'ils passent toujours par le réseau
+  // 1. Ignorer les appels API (Google APIs et autres) pour qu'ils passent toujours par le réseau
   // Sauf s'il s'agit des scripts/fonts (aistudiocdn, fonts, etc)
   if (url.pathname.includes('googleapis') && !url.hostname.includes('fonts')) {
     return;
