@@ -8,7 +8,7 @@ export default defineConfig({
   // Pour GitHub Pages: '/Gestion-de-stock/'
   // Pour Vercel: '/' ou './' pour être relatif.
   // './' est le plus sûr pour fonctionner partout.
-  base: '/Gestion-de-stock/', 
+    base: '/Gestion-de-stock-v2/',
   build: {
     outDir: 'dist',
     sourcemap: true
