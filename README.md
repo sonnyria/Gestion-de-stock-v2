@@ -29,3 +29,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1vw-ZsxB_qxKZRDpxeHTZYW
 Note: The `dist/` folder is now ignored by git (`.gitignore`) and will not be committed. If you are deploying by pushing the `dist/` artifacts to a hosting service, ensure your CI or deployment process handles the build step and publishes the `dist/` output.
 
 Note: Barcode scanning uses the browser's HTML5 Barcode Detection API (`BarcodeDetector`) and falls back to a JavaScript decoder (dynamically loaded ZXing via CDN) when unavailable — no AI model is required for barcode recognition.
+
+## Product stock history
+
+Each product now keeps a timestamped history of its quantity. When you update a product's stock (via + or -), a point is recorded with the timestamp and the new quantity. You can view a graph of the stock history on the product details screen to inspect changes over time.
