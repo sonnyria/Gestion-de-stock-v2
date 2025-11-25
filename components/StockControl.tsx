@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Product } from '../types.ts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 interface StockControlProps {
   product: Product;
@@ -20,6 +21,8 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
       setTimeout(() => setIsConfirming(false), 3000);
     }
   };
+
+  const historyData = (product.history || []).slice().sort((a,b)=>a.timestamp-b.timestamp).map(h => ({ timestamp: h.timestamp, quantity: h.quantity }));
 
   return (
     <div className="flex flex-col h-full bg-gray-900 text-white p-6 animate-fade-in">
@@ -62,7 +65,33 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
           </button>
         </div>
       </div>
-
+      {/* History chart */}
+      <div className="mt-6 w-full">
+        <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Historique du produit</p>
+        {historyData.length === 0 ? (
+          <div className="text-sm text-gray-400">Aucun historique disponible</div>
+        ) : (
+          <div className="w-full h-40 bg-gray-900/40 rounded-lg p-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={historyData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                <XAxis
+                  dataKey="timestamp"
+                  tickFormatter={(ts) => new Date(ts).toLocaleDateString()}
+                  tick={{ fill: '#9ca3af', fontSize: 10 }}
+                  minTickGap={20}
+                />
+                <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} allowDecimals={false} />
+                <Tooltip
+                  labelFormatter={(ts) => new Date(ts).toLocaleString()}
+                  contentStyle={{ backgroundColor: '#111827', border: 'none', color: '#fff' }}
+                />
+                <Line type="monotone" dataKey="quantity" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
       <div className="mt-auto pt-8">
         <button
           onClick={handleDeleteClick}

@@ -153,7 +153,10 @@ const App: React.FC = () => {
   const handleUpdateStock = (barcode: string, delta: number) => {
     setInventory(prev => prev.map(p => {
       if (p.barcode === barcode) {
-        return { ...p, quantity: Math.max(0, p.quantity + delta), lastUpdated: Date.now() };
+        const newQuantity = Math.max(0, p.quantity + delta);
+        const now = Date.now();
+        const history = (p.history ?? []).concat({ timestamp: now, quantity: newQuantity });
+        return { ...p, quantity: newQuantity, lastUpdated: now, history };
       }
       return p;
     }));

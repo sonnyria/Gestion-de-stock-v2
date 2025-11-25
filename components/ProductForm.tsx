@@ -20,6 +20,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ barcode, onSave, onCancel }) 
       name,
       quantity,
       lastUpdated: Date.now()
+      ,
+      history: [ { timestamp: Date.now(), quantity } ]
     };
     onSave(newProduct);
   };

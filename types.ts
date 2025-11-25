@@ -3,6 +3,7 @@ export interface Product {
   name: string;
   quantity: number;
   lastUpdated: number; // Timestamp
+  history?: Array<{ timestamp: number; quantity: number }>;
 }
 
 export enum ViewState {
