@@ -293,7 +293,7 @@ const App: React.FC = () => {
             
             {/* Gemini API and AI enhancements have been removed */}
 
-            <hr className="border-gray-700 mb-6" />
+            <hr className="border-gray-700 mb-4" />
 
             {/* Stock Threshold */}
             <div className="mb-6">
