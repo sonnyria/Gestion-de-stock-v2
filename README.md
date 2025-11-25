@@ -42,7 +42,8 @@ The graph includes a time filter with these options:
 - 3 m (3 months ~ 90 days)
 - 1 a (1 year ~ 365 days)
 - Tout (full history)
-- Tout (full history)
+ 
+Note: Le tooltip indiquera, pour chaque point affiché, la valeur (moyenne/médiane/somme/max) et le nombre d'échantillons inclus dans le bucket (n), le cas échéant.
 
 ### Agrégation et affichage
 

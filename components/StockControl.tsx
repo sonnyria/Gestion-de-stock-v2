@@ -25,8 +25,10 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
   // Filter options
   type RangeKey = '7d' | '1m' | '3m' | '1y' | 'all';
   type AggKey = 'none' | 'daily' | 'monthly' | 'quarterly' | 'yearly';
+  type AggMethod = 'avg' | 'median' | 'sum' | 'max';
   const [range, setRange] = useState<RangeKey>('all');
   const [agg, setAgg] = useState<AggKey>('none');
+  const [aggMethod, setAggMethod] = useState<AggMethod>('avg');
 
   const historyData = useMemo(() => {
     const arr = (product.history || []).slice().sort((a,b) => a.timestamp - b.timestamp).map(h => ({ timestamp: h.timestamp, quantity: h.quantity }));
@@ -52,7 +54,7 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
   // Aggregate history by selected aggregation
   const aggregatedData = useMemo(() => {
     if (agg === 'none') return historyData;
-    const buckets = new Map<number, { sum: number; count: number }>();
+    const buckets = new Map<number, { sum: number; count: number; values: number[] }>();
     const getBucketStart = (ts: number) => {
       const d = new Date(ts);
       switch (agg) {
@@ -74,13 +76,31 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
     historyData.forEach(pt => {
       const key = getBucketStart(pt.timestamp);
       const existing = buckets.get(key);
-      if (!existing) buckets.set(key, { sum: pt.quantity, count: 1 });
-      else { existing.sum += pt.quantity; existing.count += 1; }
+      if (!existing) buckets.set(key, { sum: pt.quantity, count: 1, values: [pt.quantity] });
+      else { existing.sum += pt.quantity; existing.count += 1; existing.values.push(pt.quantity); }
     });
 
-    const result = Array.from(buckets.entries()).map(([timestamp, { sum, count }]) => {
-      const avg = Math.round(sum / count);
-      return { timestamp, quantity: avg };
+    const result = Array.from(buckets.entries()).map(([timestamp, { sum, count, values }]) => {
+      let value: number;
+      switch (aggMethod) {
+        case 'avg':
+          value = Math.round(sum / count);
+          break;
+        case 'median':
+          values.sort((a,b) => a - b);
+          const mid = Math.floor(values.length / 2);
+          value = values.length % 2 === 1 ? values[mid] : Math.round((values[mid - 1] + values[mid]) / 2);
+          break;
+        case 'sum':
+          value = sum;
+          break;
+        case 'max':
+          value = Math.max(...values);
+          break;
+        default:
+          value = Math.round(sum / count);
+      }
+      return { timestamp, quantity: value, count };
     }).sort((a,b)=> a.timestamp - b.timestamp);
     return result;
   }, [historyData, agg]);
@@ -155,6 +175,20 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
           ))}
         </div>
       </div>
+      <div className="flex items-center gap-2 mb-4">
+        <div className="text-xs text-gray-400 uppercase tracking-wider mr-2">Méthode :</div>
+        <div className="flex gap-2">
+          {(['avg','median','sum','max'] as AggMethod[]).map(k => (
+            <button
+              key={k}
+              onClick={() => setAggMethod(k)}
+              className={`text-xs px-3 py-1 rounded-full transition ${aggMethod === k ? 'bg-blue-600 text-white' : 'bg-gray-800/40 text-gray-300'}`}
+            >
+              {k === 'avg' ? 'Moyenne' : k === 'median' ? 'Médiane' : k === 'sum' ? 'Somme' : 'Max'}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="mt-6 w-full">
         <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Historique du produit</p>
         {historyData.length === 0 ? (
@@ -182,6 +216,11 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
                 <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} allowDecimals={false} />
                 <Tooltip
                   labelFormatter={(ts) => new Date(ts).toLocaleString()}
+                  formatter={(value: any, name: string, props: any) => {
+                    const count = props && props.payload && props.payload.count;
+                    const methodLabel = aggMethod === 'avg' ? 'Moyenne' : aggMethod === 'median' ? 'Médiane' : aggMethod === 'sum' ? 'Somme' : 'Max';
+                    return [`${value} ${count ? `(n=${count})` : ''}`, methodLabel];
+                  }}
                   contentStyle={{ backgroundColor: '#111827', border: 'none', color: '#fff' }}
                 />
                 <Line type="monotone" dataKey="quantity" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
