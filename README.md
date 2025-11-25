@@ -42,5 +42,16 @@ The graph includes a time filter with these options:
 - 3 m (3 months ~ 90 days)
 - 1 a (1 year ~ 365 days)
 - Tout (full history)
+- Tout (full history)
 
-Use the selector above the chart in the product details to set the range to display.
+### Agrégation et affichage
+
+Le graphique propose également une agrégation des données pour lisser ou regrouper les points :
+- Aucun : affiche tous les points (raw)
+- Journée : moyenne quotidienne
+- Mois : moyenne par mois
+- Trimestre : moyenne par trimestre (T1..T4)
+- Année : moyenne annuelle
+
+L'agrégation calcule la moyenne des valeurs de quantité dans chaque bucket (jour/mois/trimestre/année) et affiche le point moyen pour ce bucket.
+Vous pouvez choisir simultanément une période et une agrégation (par ex. 3 mois + Journée) pour mieux analyser les tendances.

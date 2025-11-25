@@ -24,7 +24,9 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
 
   // Filter options
   type RangeKey = '7d' | '1m' | '3m' | '1y' | 'all';
+  type AggKey = 'none' | 'daily' | 'monthly' | 'quarterly' | 'yearly';
   const [range, setRange] = useState<RangeKey>('all');
+  const [agg, setAgg] = useState<AggKey>('none');
 
   const historyData = useMemo(() => {
     const arr = (product.history || []).slice().sort((a,b) => a.timestamp - b.timestamp).map(h => ({ timestamp: h.timestamp, quantity: h.quantity }));
@@ -46,6 +48,42 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
     }
     return arr.filter(point => point.timestamp >= cutoff);
   }, [product.history, range]);
+
+  // Aggregate history by selected aggregation
+  const aggregatedData = useMemo(() => {
+    if (agg === 'none') return historyData;
+    const buckets = new Map<number, { sum: number; count: number }>();
+    const getBucketStart = (ts: number) => {
+      const d = new Date(ts);
+      switch (agg) {
+        case 'daily':
+          return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        case 'monthly':
+          return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+        case 'quarterly': {
+          const qMonth = Math.floor(d.getMonth() / 3) * 3; // 0,3,6,9
+          return new Date(d.getFullYear(), qMonth, 1).getTime();
+        }
+        case 'yearly':
+          return new Date(d.getFullYear(), 0, 1).getTime();
+        default:
+          return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      }
+    };
+
+    historyData.forEach(pt => {
+      const key = getBucketStart(pt.timestamp);
+      const existing = buckets.get(key);
+      if (!existing) buckets.set(key, { sum: pt.quantity, count: 1 });
+      else { existing.sum += pt.quantity; existing.count += 1; }
+    });
+
+    const result = Array.from(buckets.entries()).map(([timestamp, { sum, count }]) => {
+      const avg = Math.round(sum / count);
+      return { timestamp, quantity: avg };
+    }).sort((a,b)=> a.timestamp - b.timestamp);
+    return result;
+  }, [historyData, agg]);
 
   return (
     <div className="flex flex-col h-full bg-gray-900 text-white p-6 animate-fade-in">
@@ -103,6 +141,20 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
           ))}
         </div>
       </div>
+      <div className="flex items-center gap-2 mb-4">
+        <div className="text-xs text-gray-400 uppercase tracking-wider mr-2">Agrégation :</div>
+        <div className="flex gap-2">
+          {(['none','daily','monthly','quarterly','yearly'] as AggKey[]).map(k => (
+            <button
+              key={k}
+              onClick={() => setAgg(k)}
+              className={`text-xs px-3 py-1 rounded-full transition ${agg === k ? 'bg-blue-600 text-white' : 'bg-gray-800/40 text-gray-300'}`}
+            >
+              {k === 'none' ? 'Aucun' : k === 'daily' ? 'Journée' : k === 'monthly' ? 'Mois' : k === 'quarterly' ? 'Trimestre' : 'Année' }
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="mt-6 w-full">
         <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Historique du produit</p>
         {historyData.length === 0 ? (
@@ -110,11 +162,20 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
         ) : (
           <div className="w-full h-40 bg-gray-900/40 rounded-lg p-2">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={historyData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+              <LineChart data={aggregatedData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
                 <XAxis
                   dataKey="timestamp"
-                  tickFormatter={(ts) => new Date(ts).toLocaleDateString()}
+                  tickFormatter={(ts) => {
+                    const d = new Date(ts);
+                    switch(agg){
+                      case 'daily': return d.toLocaleDateString();
+                      case 'monthly': return `${d.toLocaleString(undefined, { month: 'short' })} ${d.getFullYear()}`;
+                      case 'quarterly': const quarter = Math.floor(d.getMonth()/3)+1; return `T${quarter} ${d.getFullYear()}`;
+                      case 'yearly': return `${d.getFullYear()}`;
+                      default: return d.toLocaleDateString();
+                    }
+                  }}
                   tick={{ fill: '#9ca3af', fontSize: 10 }}
                   minTickGap={20}
                 />
