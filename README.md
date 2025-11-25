@@ -33,3 +33,14 @@ Note: Barcode scanning uses the browser's HTML5 Barcode Detection API (`BarcodeD
 ## Product stock history
 
 Each product now keeps a timestamped history of its quantity. When you update a product's stock (via + or -), a point is recorded with the timestamp and the new quantity. You can view a graph of the stock history on the product details screen to inspect changes over time.
+
+### Time filter
+
+The graph includes a time filter with these options:
+- 7j (7 days)
+- 1 m (1 month ~ 30 days)
+- 3 m (3 months ~ 90 days)
+- 1 a (1 year ~ 365 days)
+- Tout (full history)
+
+Use the selector above the chart in the product details to set the range to display.

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Product } from '../types.ts';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
@@ -22,7 +22,30 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
     }
   };
 
-  const historyData = (product.history || []).slice().sort((a,b)=>a.timestamp-b.timestamp).map(h => ({ timestamp: h.timestamp, quantity: h.quantity }));
+  // Filter options
+  type RangeKey = '7d' | '1m' | '3m' | '1y' | 'all';
+  const [range, setRange] = useState<RangeKey>('all');
+
+  const historyData = useMemo(() => {
+    const arr = (product.history || []).slice().sort((a,b) => a.timestamp - b.timestamp).map(h => ({ timestamp: h.timestamp, quantity: h.quantity }));
+    if (!arr.length) return arr;
+    if (range === 'all') return arr;
+    const now = Date.now();
+    let cutoff = 0;
+    switch(range) {
+      case '7d':
+        cutoff = now - 7 * 24 * 60 * 60 * 1000; break;
+      case '1m':
+        cutoff = now - 30 * 24 * 60 * 60 * 1000; break;
+      case '3m':
+        cutoff = now - 90 * 24 * 60 * 60 * 1000; break;
+      case '1y':
+        cutoff = now - 365 * 24 * 60 * 60 * 1000; break;
+      default:
+        cutoff = 0; break;
+    }
+    return arr.filter(point => point.timestamp >= cutoff);
+  }, [product.history, range]);
 
   return (
     <div className="flex flex-col h-full bg-gray-900 text-white p-6 animate-fade-in">
@@ -66,6 +89,20 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
         </div>
       </div>
       {/* History chart */}
+      <div className="flex items-center gap-2 mb-3">
+        <div className="text-xs text-gray-400 uppercase tracking-wider mr-2">Période :</div>
+        <div className="flex gap-2">
+          {(['7d','1m','3m','1y','all'] as RangeKey[]).map(k => (
+            <button
+              key={k}
+              onClick={() => setRange(k)}
+              className={`text-xs px-3 py-1 rounded-full transition ${range === k ? 'bg-blue-600 text-white' : 'bg-gray-800/40 text-gray-300'}`}
+            >
+              {k === '7d' ? '7j' : k === '1m' ? '1 m' : k === '3m' ? '3 m' : k === '1y' ? '1 a' : 'Tout' }
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="mt-6 w-full">
         <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Historique du produit</p>
         {historyData.length === 0 ? (
