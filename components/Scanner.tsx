@@ -67,6 +67,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
 
   // Start continuous ZXing decode if available
   const startContinuousZxing = useCallback(async () => {
+    // Only start ZXing continuous decode if the HTML5 BarcodeDetector API is not available
+    if (barcodeDetectorAvailable) return;
     if (!zxingAvailable || zxingDecodingRef.current) return;
     const videoEl = webcamRef.current?.video as HTMLVideoElement | undefined;
     if (!videoEl) return;
@@ -102,9 +104,10 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
 
       // Fallback monitor: if after some number of attempts no result, try canvas decode
       let fallbackIntervalId: number | null = null;
-      fallbackIntervalId = window.setInterval(async () => {
+      const fallbackIntervalRef = { id: null as number | null };
+      fallbackIntervalRef.id = window.setInterval(async () => {
         if (!zxingDecodingRef.current) {
-          if (fallbackIntervalId) { clearInterval(fallbackIntervalId); }
+          if (fallbackIntervalRef.id) { clearInterval(fallbackIntervalRef.id); fallbackIntervalRef.id = null; }
           return;
         }
         // If attempts exceed threshold and no lastResult, try explicit canvas decode using the same reader
@@ -138,9 +141,13 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
           }
         }
       }, 1500);
-    } catch (e) {
+      } catch (e) {
       console.warn('Scanner: startContinuousZxing error', e);
       zxingDecodingRef.current = false;
+    }
+    finally {
+      // Ensure interval cleared if any on exit
+      if (fallbackIntervalRef.id) { clearInterval(fallbackIntervalRef.id); fallbackIntervalRef.id = null; }
     }
   }, [zxingAvailable, selectedDeviceId, onScan]);
 
@@ -153,6 +160,12 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
     } catch (err) { console.warn('Scanner: stopContinuousZxing error', err); }
     zxingDecodingRef.current = false;
   }, []);
+  // Ensure we also clear any fallback interval that might be running
+  const stopContinuousZxingAndClear = useCallback(() => {
+    try { stopContinuousZxing(); } catch (e) {}
+    // fallbackIntervalRef handled inside startContinuousZxing's finally
+    zxingDecodingRef.current = false;
+  }, [stopContinuousZxing]);
 
   // Make sure we call stopContinuousZxing on unmount and on cancel
   useEffect(() => {
@@ -279,13 +292,12 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
 
   const onScanWrap = useCallback((barcode: string) => {
     try { stopContinuousZxing(); } catch (e) { }
-    onScanWrap(barcode);
+    onScan(barcode);
   }, [onScan, stopContinuousZxing]);
 
   // Automatic Scanning Logic
   const captureAndScan = useCallback(async () => {
     if (!webcamRef.current || scanning) return;
-    if (zxingDecodingRef.current) return; // ZXing continuous decoding in progress; skip one-off capture
 
     const imageSrc = webcamRef.current.getScreenshot({width: 1920, height: 1080});
     if (!imageSrc) return;
@@ -345,7 +357,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
   // Trigger scan loop
   useEffect(() => {
     const intervalId = setInterval(() => {
-      if (!scanning && !error && !zxingDecodingRef.current) {
+      if (!scanning && !error) {
         captureAndScan();
       }
     }, 1500); // Scan every 1.5 seconds to balance responsiveness and API rate limits
