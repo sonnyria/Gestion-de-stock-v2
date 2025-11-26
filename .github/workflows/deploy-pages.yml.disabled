@@ -1,0 +1,6 @@
+name: Disabled - Build and deploy (GitHub Pages)
+
+on: none
+
+# This workflow has been disabled and replaced by deploy-gh-pages.yml to avoid deprecated actions
+# Kept for reference only.
