@@ -62,6 +62,39 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
     })();
   }, [handleDevices]);
 
+  const exportDiagnostics = async () => {
+    const diagnostics = {
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      barcodeDetectorAvailable,
+      zxingAvailable,
+      selectedDeviceId,
+      attempts,
+      lastResult,
+      detectionFails,
+      videoConstraints,
+    };
+    try {
+      const json = JSON.stringify(diagnostics, null, 2);
+      // Try to copy to clipboard first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(json);
+      }
+      // Also trigger a download
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `scanner_diagnostics_${new Date().toISOString().slice(0,19)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.warn('Failed to export diagnostics', e);
+    }
+  };
+
   // Handle camera selection change
   const handleCameraChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const deviceId = e.target.value;
@@ -277,6 +310,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
           <div className="text-gray-400">Dernier : <span className="text-white font-mono">{lastResult || '—'}</span></div>
           <div className="text-gray-400 mt-1">Détecteur HTML5 : <span className="text-white font-mono">{barcodeDetectorAvailable ? 'Oui' : 'Non'}</span></div>
           <div className="text-gray-400">ZXing CDN : <span className="text-white font-mono">{zxingAvailable === null ? '...' : zxingAvailable ? 'OK' : 'NOK'}</span></div>
+          <button onClick={exportDiagnostics} className="mt-2 w-full text-xs uppercase tracking-wide bg-gray-700/30 hover:bg-gray-700/50 text-white rounded p-1">Exporter diagnostics</button>
         </div>
         
         {/* Error Message (Only for hardware errors now) */}
