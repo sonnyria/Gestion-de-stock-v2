@@ -243,6 +243,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
           screenshotFormat="image/jpeg"
           screenshotQuality={1}
           forceScreenshotSourceSize={true}
+          videoProps={{ playsInline: true, muted: true }}
           videoConstraints={videoConstraints}
           onUserMedia={handleUserMedia} 
           onUserMediaError={handleUserMediaError}
