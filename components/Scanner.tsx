@@ -18,6 +18,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
   // Torch / Flashlight state
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
+  const [barcodeDetectorAvailable, setBarcodeDetectorAvailable] = useState<boolean>(false);
+  const [zxingAvailable, setZxingAvailable] = useState<boolean | null>(null);
 
   // Camera selection state
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
@@ -39,6 +41,18 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
 
   useEffect(() => {
     handleDevices();
+    setBarcodeDetectorAvailable('BarcodeDetector' in window);
+    // Try to test ZXing CDN presence asynchronously (do not fail on error)
+    (async () => {
+      try {
+        const ZXing = await import('https://cdn.jsdelivr.net/npm/@zxing/browser@0.18.6/dist/index.min.js');
+        const BrowserMultiFormatReader = ZXing?.BrowserMultiFormatReader || ZXing?.default?.BrowserMultiFormatReader;
+        setZxingAvailable(!!BrowserMultiFormatReader);
+      } catch (err) {
+        console.warn('Scanner: ZXing import failed on mount', err);
+        setZxingAvailable(false);
+      }
+    })();
   }, [handleDevices]);
 
   // Handle camera selection change
@@ -103,8 +117,9 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
   };
 
   const videoConstraints = {
-    width: { min: 1280, ideal: 1920 }, // Force high resolution for barcode clarity
-    height: { min: 720, ideal: 1080 },
+    // Lower resolution on iOS for better performance and reliable canvas capture
+    width: { min: 640, ideal: 1280 },
+    height: { min: 480, ideal: 720 },
     deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
     facingMode: selectedDeviceId ? undefined : "environment"
   };
@@ -123,17 +138,22 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
     
     try {
       setAttempts(a => a + 1);
-    // Use local HTML5-based barcode detection (BarcodeDetector + ZXing fallback)
-    console.debug('Scanner: sending image to readBarcodeFromImage (length)', imageSrc && imageSrc.length);
-    let barcode = await readBarcodeFromImage(imageSrc);
-    // If no barcode found from the static image, try detection directly from the live video element
-    if (!barcode) {
-      const videoEl = webcamRef.current?.video as HTMLVideoElement | undefined;
-      if (videoEl) {
-        console.debug('Scanner: trying readBarcodeFromMediaElement live video fallback');
+    // Prefer detection directly from the live video element (more reliable on iOS), else fallback to the screenshot
+    const videoEl = webcamRef.current?.video as HTMLVideoElement | undefined;
+    let barcode: string | null = null;
+    if (videoEl) {
+      try {
+        console.debug('Scanner: trying readBarcodeFromMediaElement (live video)');
         barcode = await readBarcodeFromMediaElement(videoEl);
         console.debug('Scanner: readBarcodeFromMediaElement returned', barcode);
+      } catch (e) {
+        console.warn('Scanner: readBarcodeFromMediaElement error', e);
       }
+    }
+    if (!barcode && imageSrc) {
+      console.debug('Scanner: trying readBarcodeFromImage (screenshot)');
+      barcode = await readBarcodeFromImage(imageSrc);
+      console.debug('Scanner: readBarcodeFromImage returned', barcode);
     }
     console.debug('Scanner: readBarcodeFromImage returned', barcode);
       
@@ -247,6 +267,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
         <div className="absolute top-24 right-4 z-40 text-xs text-gray-300 bg-black/60 px-3 py-2 rounded-lg border border-gray-700">
           <div className="text-gray-400">Tentatives : <span className="text-white font-mono">{attempts}</span></div>
           <div className="text-gray-400">Dernier : <span className="text-white font-mono">{lastResult || '—'}</span></div>
+          <div className="text-gray-400 mt-1">Détecteur HTML5 : <span className="text-white font-mono">{barcodeDetectorAvailable ? 'Oui' : 'Non'}</span></div>
+          <div className="text-gray-400">ZXing CDN : <span className="text-white font-mono">{zxingAvailable === null ? '...' : zxingAvailable ? 'OK' : 'NOK'}</span></div>
         </div>
         
         {/* Error Message (Only for hardware errors now) */}

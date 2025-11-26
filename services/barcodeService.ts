@@ -106,12 +106,18 @@ export const readBarcodeFromMediaElement = async (el: HTMLVideoElement | HTMLIma
   try {
     if (!el) return null;
 
-    // If BarcodeDetector available, prefer it — it accepts HTMLVideoElement directly
+    // If BarcodeDetector is supported, prefer it – try with an ImageBitmap first (more reliable)
     if ('BarcodeDetector' in window) {
       try {
-        // Use default (no filter) so we can detect any supported format
         const detector = new (window as any).BarcodeDetector();
-        const results = await detector.detect(el as any);
+        let imageBitmap: ImageBitmap | null = null;
+        try {
+          // createImageBitmap accepts HTMLVideoElement or HTMLImageElement
+          imageBitmap = await createImageBitmap(el as any);
+        } catch (bitmapErr) {
+          console.debug('barcodeService: createImageBitmap failed for element; falling back to direct detect', bitmapErr);
+        }
+        const results = imageBitmap ? await detector.detect(imageBitmap as any) : await detector.detect(el as any);
         if (results?.length) {
           console.debug('barcodeService: BarcodeDetector (element) found', results);
           return results[0].rawValue || null;
@@ -133,11 +139,49 @@ export const readBarcodeFromMediaElement = async (el: HTMLVideoElement | HTMLIma
       const reader = BrowserMultiFormatReader ? new BrowserMultiFormatReader() : null;
       if (reader) {
         try {
-          const result = await reader.decodeFromImageElement(el as any);
-          if (result?.getText) return result.getText();
-          if ((result as any)?.text) return (result as any).text;
+          // If it's a video element, draw a single frame to a canvas and decode from canvas
+          if ((el as HTMLVideoElement).tagName && (el as HTMLVideoElement).tagName.toLowerCase() === 'video') {
+            const video = el as HTMLVideoElement;
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth || video.clientWidth || 640;
+            canvas.height = video.videoHeight || video.clientHeight || 480;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              try {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const canvasResult = await reader.decodeFromCanvas(canvas);
+                if (canvasResult?.getText) return canvasResult.getText();
+                if ((canvasResult as any)?.text) return (canvasResult as any).text;
+              } catch (e) {
+                console.warn('barcodeService: ZXing decode from video canvas failed', e);
+              }
+            }
+          } else {
+            // If it's an <img>, try decodeFromImageElement first, then canvas fallback
+            try {
+              const result = await reader.decodeFromImageElement(el as any);
+              if (result?.getText) return result.getText();
+              if ((result as any)?.text) return (result as any).text;
+            } catch (e) {
+              try {
+                const img = el as HTMLImageElement;
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth || img.width || 640;
+                canvas.height = img.naturalHeight || img.height || 480;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                  const canvasResult = await reader.decodeFromCanvas(canvas);
+                  if (canvasResult?.getText) return canvasResult.getText();
+                  if ((canvasResult as any)?.text) return (canvasResult as any).text;
+                }
+              } catch (e2) {
+                console.warn('barcodeService: ZXing decode fallback for image failed', e2);
+              }
+            }
+          }
         } catch (e) {
-          console.warn('barcodeService: ZXing decode from element failed', e);
+          console.warn('barcodeService: ZXing element decode failed', e);
         } finally {
           if (reader?.reset) reader.reset();
         }
