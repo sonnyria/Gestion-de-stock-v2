@@ -144,6 +144,19 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
     return result;
   }, [historyData, agg, aggMethod, range]);
 
+  // Compute a summary of the displayed period (average/median/sum/max across the aggregatedData quantities)
+  const periodSummary = useMemo(() => {
+    if (!aggregatedData || aggregatedData.length === 0) return null;
+    const vals = aggregatedData.map(d => d.quantity);
+    const sum = vals.reduce((a, b) => a + b, 0);
+    const avg = Math.round(sum / vals.length);
+    const sorted = vals.slice().sort((a,b) => a - b);
+    const mid = Math.floor(sorted.length/2);
+    const median = sorted.length % 2 === 1 ? sorted[mid] : Math.round((sorted[mid-1] + sorted[mid]) / 2);
+    const maxValue = Math.max(...vals);
+    return { avg, median, sum, max: maxValue };
+  }, [aggregatedData]);
+
   return (
     <div className="flex flex-col h-full bg-gray-900 text-white p-6 animate-fade-in">
       <button onClick={onClose} className="mb-6 text-gray-400 hover:text-white flex items-center gap-2">
@@ -234,6 +247,12 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
           <div className="text-sm text-gray-400">Aucun historique disponible</div>
         ) : (
           <div className="w-full h-40 bg-gray-900/40 rounded-lg p-2">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs text-gray-400 uppercase tracking-wider">Affichage: {agg === 'daily' ? 'Base: max/jour' : agg === 'none' ? 'Brut' : 'Bucket par ' + agg}</div>
+              {periodSummary && (
+                <div className="text-xs text-gray-400 uppercase tracking-wider">{aggMethod === 'avg' ? 'Moyenne' : aggMethod === 'median' ? 'Médiane' : aggMethod === 'sum' ? 'Somme' : 'Max'}: {aggMethod === 'avg' ? periodSummary.avg : aggMethod === 'median' ? periodSummary.median : aggMethod === 'sum' ? periodSummary.sum : periodSummary.max}</div>
+              )}
+            </div>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={aggregatedData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
