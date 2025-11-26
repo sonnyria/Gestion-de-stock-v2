@@ -79,19 +79,59 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
       zxingDecodingRef.current = true;
       console.debug('Scanner: starting continuous ZXing decode');
       // decodeFromVideoDevice can be given a deviceId and a video element
-      reader.decodeFromVideoDevice(selectedDeviceId || null, videoEl, (result, err) => {
+      reader.decodeFromVideoDevice(selectedDeviceId || null, videoEl, async (result, err) => {
+        setAttempts(a => a + 1);
         if (result) {
           console.info('Scanner: ZXing continuous detection result', result?.getText ? result.getText() : result?.text || result);
           // Stop the continuous decode loop and call onScan
           try { reader.reset(); } catch (e) { console.warn('Scanner: reader.reset failed', e); }
           zxingDecodingRef.current = false;
           setScanning(true);
+          stopContinuousZxing();
           onScan(result.getText ? result.getText() : (result as any).text);
         } else if (err) {
           // Not always true error; ignore unless persistent
           // console.debug('Scanner: ZXing decode callback error', err);
         }
       });
+
+      // Fallback monitor: if after some number of attempts no result, try canvas decode
+      let fallbackIntervalId: number | null = null;
+      fallbackIntervalId = window.setInterval(async () => {
+        if (!zxingDecodingRef.current) {
+          if (fallbackIntervalId) { clearInterval(fallbackIntervalId); }
+          return;
+        }
+        // If attempts exceed threshold and no lastResult, try explicit canvas decode using the same reader
+        if (attempts > 0 && attempts % 6 === 0) {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = videoEl.videoWidth || 640;
+            canvas.height = videoEl.videoHeight || 480;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+              try {
+                const canvasResult = await reader.decodeFromCanvas(canvas);
+                if (canvasResult?.getText) {
+                  console.info('Scanner: ZXing canvas fallback found', canvasResult.getText());
+                  try { reader.reset(); } catch (err) { console.warn('Scanner: reader.reset failed', err); }
+                  zxingDecodingRef.current = false;
+                  setScanning(true);
+                  stopContinuousZxing();
+                  setLastResult(canvasResult.getText());
+                  onScan(canvasResult.getText());
+                }
+              } catch (err2) {
+                // ignore; will retry next interval
+                console.debug('Scanner: ZXing canvas fallback decode failed', err2);
+              }
+            }
+          } catch (e) {
+            console.warn('Scanner: fallback interval error', e);
+          }
+        }
+      }, 1500);
     } catch (e) {
       console.warn('Scanner: startContinuousZxing error', e);
       zxingDecodingRef.current = false;
@@ -107,6 +147,13 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
     } catch (err) { console.warn('Scanner: stopContinuousZxing error', err); }
     zxingDecodingRef.current = false;
   }, []);
+
+  // Make sure we call stopContinuousZxing on unmount and on cancel
+  useEffect(() => {
+    return () => {
+      stopContinuousZxing();
+    };
+  }, [stopContinuousZxing]);
 
   useEffect(() => {
     // Auto-start continuous decode when ZXing is available and video element present
@@ -218,6 +265,17 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
     facingMode: selectedDeviceId ? undefined : "environment"
   };
 
+  // wrap parent-provided onCancel and onScan to ensure stopContinuousZxing is called
+  const onCancelWrap = useCallback(() => {
+    try { stopContinuousZxing(); } catch (e) { }
+    onCancel();
+  }, [onCancel, stopContinuousZxing]);
+
+  const onScanWrap = useCallback((barcode: string) => {
+    try { stopContinuousZxing(); } catch (e) { }
+    onScan(barcode);
+  }, [onScan, stopContinuousZxing]);
+
   // Automatic Scanning Logic
   const captureAndScan = useCallback(async () => {
     if (!webcamRef.current || scanning) return;
@@ -257,9 +315,12 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
         // Persist last result for on-screen debug
         setLastResult(barcode);
         setDetectionFails(0);
+        // Stop ZXing continuous decode if running
+        try { stopContinuousZxing(); } catch (e) { }
         // Keep scanning 'true' to avoid immediate further detection cycles while parent handles the result
+        setScanning(true);
         // Call the callback so the parent can handle the scan (e.g., open product details)
-        onScan(barcode);
+        onScanWrap(barcode);
         return; // Do not reset scanning here — parent should update view or unmount Scanner
       }
       setLastResult(null);
@@ -278,9 +339,9 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
   // Trigger scan loop
   useEffect(() => {
     const intervalId = setInterval(() => {
-        if (!scanning && !error) {
-            captureAndScan();
-        }
+      if (!scanning && !error && !zxingDecodingRef.current) {
+        captureAndScan();
+      }
     }, 1500); // Scan every 1.5 seconds to balance responsiveness and API rate limits
 
     return () => clearInterval(intervalId);
