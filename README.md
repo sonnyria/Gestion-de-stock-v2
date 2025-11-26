@@ -28,7 +28,9 @@ View your app in AI Studio: https://ai.studio/apps/drive/1vw-ZsxB_qxKZRDpxeHTZYW
 
 Note: The `dist/` folder is now ignored by git (`.gitignore`) and will not be committed. If you are deploying by pushing the `dist/` artifacts to a hosting service, ensure your CI or deployment process handles the build step and publishes the `dist/` output.
 
-Note: Barcode scanning uses the browser's HTML5 Barcode Detection API (`BarcodeDetector`) and falls back to a JavaScript decoder (dynamically loaded ZXing via CDN) when unavailable — no AI model is required for barcode recognition.
+Note: Barcode scanning uses the browser's HTML5 Barcode Detection API (`BarcodeDetector`) when available.
+On browsers that do not support `BarcodeDetector` (notably iOS Safari/Chrome which use WebKit), the app falls back to a JavaScript decoder (`ZXing`).
+To improve compatibility on iOS we now include `@zxing/browser` as a local dependency, and the app will try the local import first (then CDN only if the local import fails).
 
 ## Product stock history
 
