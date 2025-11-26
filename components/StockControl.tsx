@@ -115,23 +115,29 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
     const result = Array.from(buckets.entries()).map(([timestamp, { sum, count, values }]) => {
       let value: number;
       if (!count) return { timestamp, quantity: 0, count } as { timestamp: number; quantity: number; count: number };
-      switch (aggMethod) {
-        case 'avg':
-          value = Math.round(sum / count);
-          break;
-        case 'median':
-          values.sort((a,b) => a - b);
-          const mid = Math.floor(values.length / 2);
-          value = values.length % 2 === 1 ? values[mid] : Math.round((values[mid - 1] + values[mid]) / 2);
-          break;
-        case 'sum':
-          value = sum;
-          break;
-        case 'max':
-          value = values.length ? Math.max(...values) : 0;
-          break;
-        default:
-          value = Math.round(sum / count);
+
+      // When aggregating daily, use the maximum recorded value in the bucket (day) as the bucket value
+      if (agg === 'daily') {
+        value = values.length ? Math.max(...values) : 0;
+      } else {
+        switch (aggMethod) {
+          case 'avg':
+            value = Math.round(sum / count);
+            break;
+          case 'median':
+            values.sort((a,b) => a - b);
+            const mid = Math.floor(values.length / 2);
+            value = values.length % 2 === 1 ? values[mid] : Math.round((values[mid - 1] + values[mid]) / 2);
+            break;
+          case 'sum':
+            value = sum;
+            break;
+          case 'max':
+            value = values.length ? Math.max(...values) : 0;
+            break;
+          default:
+            value = Math.round(sum / count);
+        }
       }
       return { timestamp, quantity: value, count };
     }).sort((a,b)=> a.timestamp - b.timestamp);
