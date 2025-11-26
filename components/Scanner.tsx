@@ -13,6 +13,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<string | null>(null);
   const [attempts, setAttempts] = useState(0);
+  const attemptsRef = useRef(0);
   const [detectionFails, setDetectionFails] = useState(0);
   
   // Torch / Flashlight state
@@ -80,7 +81,11 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
       console.debug('Scanner: starting continuous ZXing decode');
       // decodeFromVideoDevice can be given a deviceId and a video element
       reader.decodeFromVideoDevice(selectedDeviceId || null, videoEl, async (result, err) => {
-        setAttempts(a => a + 1);
+        setAttempts(a => {
+          const newA = a + 1;
+          attemptsRef.current = newA;
+          return newA;
+        });
         if (result) {
           console.info('Scanner: ZXing continuous detection result', result?.getText ? result.getText() : result?.text || result);
           // Stop the continuous decode loop and call onScan
@@ -103,7 +108,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
           return;
         }
         // If attempts exceed threshold and no lastResult, try explicit canvas decode using the same reader
-        if (attempts > 0 && attempts % 6 === 0) {
+        const currentAttempts = attemptsRef.current;
+        if (currentAttempts > 0 && currentAttempts % 6 === 0) {
           try {
             const canvas = document.createElement('canvas');
             canvas.width = videoEl.videoWidth || 640;
