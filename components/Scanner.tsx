@@ -88,7 +88,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
           zxingDecodingRef.current = false;
           setScanning(true);
           stopContinuousZxing();
-          onScan(result.getText ? result.getText() : (result as any).text);
+          onScanWrap(result.getText ? result.getText() : (result as any).text);
         } else if (err) {
           // Not always true error; ignore unless persistent
           // console.debug('Scanner: ZXing decode callback error', err);
@@ -120,7 +120,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
                   setScanning(true);
                   stopContinuousZxing();
                   setLastResult(canvasResult.getText());
-                  onScan(canvasResult.getText());
+                  onScanWrap(canvasResult.getText());
                 }
               } catch (err2) {
                 // ignore; will retry next interval
@@ -273,7 +273,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
 
   const onScanWrap = useCallback((barcode: string) => {
     try { stopContinuousZxing(); } catch (e) { }
-    onScan(barcode);
+    onScanWrap(barcode);
   }, [onScan, stopContinuousZxing]);
 
   // Automatic Scanning Logic
