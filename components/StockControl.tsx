@@ -25,20 +25,22 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
   // Filter options
   type RangeKey = '7d' | '1m' | '3m' | '1y' | 'all';
   type AggKey = 'none' | 'daily' | 'monthly' | 'quarterly' | 'yearly';
-  type AggMethod = 'avg' | 'median' | 'sum' | 'max';
+  type AggMethod = 'avg' | 'median' | 'max';
   const [range, setRange] = useState<RangeKey>('all');
   const [agg, setAgg] = useState<AggKey>('none');
   const [aggMethod, setAggMethod] = useState<AggMethod>('avg');
 
+  // Compute historyData filtered by selected range
   const historyData = useMemo(() => {
-    const arr = (product.history || []).slice().sort((a,b) => a.timestamp - b.timestamp).map(h => ({ timestamp: h.timestamp, quantity: h.quantity }));
+    const arr = (product.history || []).slice().sort((a, b) => a.timestamp - b.timestamp).map(h => ({ timestamp: h.timestamp, quantity: h.quantity }));
     if (!arr.length) return arr;
     if (range === 'all') return arr;
     const now = Date.now();
     let cutoff = 0;
-    switch(range) {
+    switch (range) {
       case '7d':
-        cutoff = now - 7 * 24 * 60 * 60 * 1000; break;
+        cutoff = now - (7 - 1) * 24 * 60 * 60 * 1000; // inclusive 7 days
+        break;
       case '1m':
         cutoff = now - 30 * 24 * 60 * 60 * 1000; break;
       case '3m':
@@ -49,7 +51,7 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
         cutoff = 0; break;
     }
     const filtered = arr.filter(point => point.timestamp >= cutoff);
-    // If there's no data for the range, create empty default points at each bucket increment for '7d' when agg is daily
+    // We return the filtered history here; aggregation step will create empty buckets as needed
     return filtered;
   }, [product.history, range]);
 
@@ -129,9 +131,6 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
             const mid = Math.floor(values.length / 2);
             value = values.length % 2 === 1 ? values[mid] : Math.round((values[mid - 1] + values[mid]) / 2);
             break;
-          case 'sum':
-            value = sum;
-            break;
           case 'max':
             value = values.length ? Math.max(...values) : 0;
             break;
@@ -154,7 +153,7 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
     const mid = Math.floor(sorted.length/2);
     const median = sorted.length % 2 === 1 ? sorted[mid] : Math.round((sorted[mid-1] + sorted[mid]) / 2);
     const maxValue = Math.max(...vals);
-    return { avg, median, sum, max: maxValue };
+    return { avg, median, max: maxValue };
   }, [aggregatedData]);
 
   return (
@@ -230,13 +229,13 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
       <div className="flex items-center gap-2 mb-4">
         <div className="text-xs text-gray-400 uppercase tracking-wider mr-2">Méthode :</div>
         <div className="flex gap-2">
-          {(['avg','median','sum','max'] as AggMethod[]).map(k => (
+          {(['avg','median','max'] as AggMethod[]).map(k => (
             <button
               key={k}
               onClick={() => setAggMethod(k)}
               className={`text-xs px-3 py-1 rounded-full transition ${aggMethod === k ? 'bg-blue-600 text-white' : 'bg-gray-800/40 text-gray-300'}`}
             >
-              {k === 'avg' ? 'Moyenne' : k === 'median' ? 'Médiane' : k === 'sum' ? 'Somme' : 'Max'}
+              {k === 'avg' ? 'Moyenne' : k === 'median' ? 'Médiane' : 'Max'}
             </button>
           ))}
         </div>
@@ -250,7 +249,7 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs text-gray-400 uppercase tracking-wider">Affichage: {agg === 'daily' ? 'Base: max/jour' : agg === 'none' ? 'Brut' : 'Bucket par ' + agg}</div>
               {periodSummary && (
-                <div className="text-xs text-gray-400 uppercase tracking-wider">{aggMethod === 'avg' ? 'Moyenne' : aggMethod === 'median' ? 'Médiane' : aggMethod === 'sum' ? 'Somme' : 'Max'}: {aggMethod === 'avg' ? periodSummary.avg : aggMethod === 'median' ? periodSummary.median : aggMethod === 'sum' ? periodSummary.sum : periodSummary.max}</div>
+                <div className="text-xs text-gray-400 uppercase tracking-wider">{aggMethod === 'avg' ? 'Moyenne' : aggMethod === 'median' ? 'Médiane' : 'Max'}: {aggMethod === 'avg' ? periodSummary.avg : aggMethod === 'median' ? periodSummary.median : periodSummary.max}</div>
               )}
             </div>
             <ResponsiveContainer width="100%" height="100%">
@@ -274,11 +273,7 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
                 <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} allowDecimals={false} />
                 <Tooltip
                   labelFormatter={(ts) => new Date(ts).toLocaleString()}
-                  formatter={(value: any, name: string, props: any) => {
-                    const count = props && props.payload && props.payload.count;
-                    const methodLabel = aggMethod === 'avg' ? 'Moyenne' : aggMethod === 'median' ? 'Médiane' : aggMethod === 'sum' ? 'Somme' : 'Max';
-                    return [`${value} ${count ? `(n=${count})` : ''}`, methodLabel];
-                  }}
+                  formatter={(value: any) => [`${value}`, '']}
                   contentStyle={{ backgroundColor: '#111827', border: 'none', color: '#fff' }}
                 />
                 <Line type="monotone" dataKey="quantity" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />

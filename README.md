@@ -43,16 +43,16 @@ The graph includes a time filter with these options:
 - 1 a (1 year ~ 365 days)
 - Tout (full history)
  
-Note: Le tooltip indiquera, pour chaque point affiché, la valeur (moyenne/médiane/somme/max) et le nombre d'échantillons inclus dans le bucket (n), le cas échéant.
+Note: Le tooltip indiquera uniquement la valeur numérique du point affiché (moyenne/médiane/max), sans afficher le nombre d'échantillons.
 
 ### Agrégation et affichage
 
 Le graphique propose également une agrégation des données pour lisser ou regrouper les points :
 - Aucun : affiche tous les points (raw)
-- Journée : moyenne quotidienne
+- Journée : valeur maximale journalière (Base: max/jour)
 - Mois : moyenne par mois
 - Trimestre : moyenne par trimestre (T1..T4)
 - Année : moyenne annuelle
 
-L'agrégation calcule la moyenne des valeurs de quantité dans chaque bucket (jour/mois/trimestre/année) et affiche le point moyen pour ce bucket.
+L'agrégation calcule la valeur du bucket selon la méthode choisie (moyenne, médiane, max). Pour l'option Journée, le bucket utilise la valeur maximale enregistrée pendant la journée.
 Vous pouvez choisir simultanément une période et une agrégation (par ex. 3 mois + Journée) pour mieux analyser les tendances.
