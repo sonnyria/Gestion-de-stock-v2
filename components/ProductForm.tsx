@@ -85,7 +85,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ barcode, onSave, onCancel }) 
         <div className="flex gap-3 mt-6">
           <button
             type="button"
-            onClick={onCancel}
+            onClick={() => { console.debug('ProductForm: cancel button clicked'); onCancel(); }}
             className="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-3 px-4 rounded-lg font-medium transition"
           >
             Annuler

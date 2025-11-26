@@ -201,7 +201,7 @@ const App: React.FC = () => {
         <ProductForm
             barcode={activeBarcode}
             onSave={handleAddProduct}
-            onCancel={() => setView(ViewState.DASHBOARD)}
+            onCancel={() => { console.debug('App: ProductForm cancel clicked, clearing activeBarcode'); setView(ViewState.DASHBOARD); setActiveBarcode(null); }}
         />
       </div>
     );
@@ -216,7 +216,7 @@ const App: React.FC = () => {
             product={product}
             onUpdateStock={handleUpdateStock}
             onDelete={handleDeleteProduct}
-            onClose={() => setView(ViewState.DASHBOARD)}
+            onClose={() => { console.debug('App: StockControl close clicked, clearing activeBarcode'); setView(ViewState.DASHBOARD); setActiveBarcode(null); }}
             />
         </div>
       );
