@@ -446,7 +446,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
       {/* Controls */}
       <div className="h-24 bg-gray-900 flex items-center justify-center px-8 pb-safe border-t border-gray-800 relative">
         <button 
-          onClick={onCancel}
+          onClick={onCancelWrap}
           className="absolute left-8 text-gray-400 hover:text-white font-medium py-3 px-6 rounded-full border border-gray-600 hover:bg-gray-800 transition"
         >
           Annuler
