@@ -48,7 +48,9 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
       default:
         cutoff = 0; break;
     }
-    return arr.filter(point => point.timestamp >= cutoff);
+    const filtered = arr.filter(point => point.timestamp >= cutoff);
+    // If there's no data for the range, create empty default points at each bucket increment for '7d' when agg is daily
+    return filtered;
   }, [product.history, range]);
 
   // Aggregate history by selected aggregation
@@ -80,8 +82,39 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
       else { existing.sum += pt.quantity; existing.count += 1; existing.values.push(pt.quantity); }
     });
 
+    // If a date range is selected (not 'all'), ensure we create buckets for the entire range
+    // so the chart shows a value (possibly zero) for each bucket even when there is no sample.
+    const now = Date.now();
+    // Calculate inclusive range start so '7d' yields 7 buckets (today + 6 previous days)
+    const daysForRange: Record<RangeKey, number> = { '7d': 7, '1m': 30, '3m': 90, '1y': 365, 'all': 0 };
+    const days = daysForRange[range] || 0;
+    let cutoff = 0;
+    if (days > 0) {
+      cutoff = now - (days - 1) * 24 * 60 * 60 * 1000; // inclusive
+    }
+
+    // compute bucket boundaries
+    const firstBucketStart = getBucketStart((cutoff && cutoff > 0) ? cutoff : (historyData.length ? historyData[0].timestamp : now));
+    const lastBucketStart = getBucketStart(now);
+    const nextBucketStart = (ts: number) => {
+      const d = new Date(ts);
+      switch (agg) {
+        case 'daily': d.setDate(d.getDate() + 1); break;
+        case 'monthly': d.setMonth(d.getMonth() + 1); break;
+        case 'quarterly': d.setMonth(d.getMonth() + 3); break;
+        case 'yearly': d.setFullYear(d.getFullYear() + 1); break;
+        default: d.setDate(d.getDate() + 1); break;
+      }
+      return getBucketStart(d.getTime());
+    };
+
+    for (let k = firstBucketStart; k <= lastBucketStart; k = nextBucketStart(k)) {
+      if (!buckets.has(k)) buckets.set(k, { sum: 0, count: 0, values: [] });
+    }
+
     const result = Array.from(buckets.entries()).map(([timestamp, { sum, count, values }]) => {
       let value: number;
+      if (!count) return { timestamp, quantity: 0, count } as { timestamp: number; quantity: number; count: number };
       switch (aggMethod) {
         case 'avg':
           value = Math.round(sum / count);
@@ -95,7 +128,7 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
           value = sum;
           break;
         case 'max':
-          value = Math.max(...values);
+          value = values.length ? Math.max(...values) : 0;
           break;
         default:
           value = Math.round(sum / count);
@@ -103,7 +136,7 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
       return { timestamp, quantity: value, count };
     }).sort((a,b)=> a.timestamp - b.timestamp);
     return result;
-  }, [historyData, agg]);
+  }, [historyData, agg, aggMethod, range]);
 
   return (
     <div className="flex flex-col h-full bg-gray-900 text-white p-6 animate-fade-in">
