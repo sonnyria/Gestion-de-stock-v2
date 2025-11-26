@@ -20,6 +20,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
   const [torchOn, setTorchOn] = useState(false);
   const [barcodeDetectorAvailable, setBarcodeDetectorAvailable] = useState<boolean>(false);
   const [zxingAvailable, setZxingAvailable] = useState<boolean | null>(null);
+  const zxingReaderRef = useRef<any | null>(null);
+  const zxingDecodingRef = useRef<boolean>(false);
 
   // Camera selection state
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
@@ -61,6 +63,58 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
       }
     })();
   }, [handleDevices]);
+
+  // Start continuous ZXing decode if available
+  const startContinuousZxing = useCallback(async () => {
+    if (!zxingAvailable || zxingDecodingRef.current) return;
+    const videoEl = webcamRef.current?.video as HTMLVideoElement | undefined;
+    if (!videoEl) return;
+    try {
+      let ZXing: any = null;
+      try { ZXing = await import('@zxing/browser'); } catch (local) { ZXing = await import('https://cdn.jsdelivr.net/npm/@zxing/browser@0.18.6/dist/index.min.js'); }
+      const BrowserMultiFormatReader = ZXing?.BrowserMultiFormatReader || ZXing?.default?.BrowserMultiFormatReader;
+      if (!BrowserMultiFormatReader) return;
+      const reader = new BrowserMultiFormatReader();
+      zxingReaderRef.current = reader;
+      zxingDecodingRef.current = true;
+      console.debug('Scanner: starting continuous ZXing decode');
+      // decodeFromVideoDevice can be given a deviceId and a video element
+      reader.decodeFromVideoDevice(selectedDeviceId || null, videoEl, (result, err) => {
+        if (result) {
+          console.info('Scanner: ZXing continuous detection result', result?.getText ? result.getText() : result?.text || result);
+          // Stop the continuous decode loop and call onScan
+          try { reader.reset(); } catch (e) { console.warn('Scanner: reader.reset failed', e); }
+          zxingDecodingRef.current = false;
+          setScanning(true);
+          onScan(result.getText ? result.getText() : (result as any).text);
+        } else if (err) {
+          // Not always true error; ignore unless persistent
+          // console.debug('Scanner: ZXing decode callback error', err);
+        }
+      });
+    } catch (e) {
+      console.warn('Scanner: startContinuousZxing error', e);
+      zxingDecodingRef.current = false;
+    }
+  }, [zxingAvailable, selectedDeviceId, onScan]);
+
+  const stopContinuousZxing = useCallback(() => {
+    try {
+      if (zxingReaderRef.current) {
+        zxingReaderRef.current.reset();
+        zxingReaderRef.current = null;
+      }
+    } catch (err) { console.warn('Scanner: stopContinuousZxing error', err); }
+    zxingDecodingRef.current = false;
+  }, []);
+
+  useEffect(() => {
+    // Auto-start continuous decode when ZXing is available and video element present
+    if (zxingAvailable && !zxingDecodingRef.current) {
+      startContinuousZxing();
+    }
+    return () => stopContinuousZxing();
+  }, [zxingAvailable, startContinuousZxing, stopContinuousZxing]);
 
   const exportDiagnostics = async () => {
     const diagnostics = {
@@ -167,6 +221,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
   // Automatic Scanning Logic
   const captureAndScan = useCallback(async () => {
     if (!webcamRef.current || scanning) return;
+    if (zxingDecodingRef.current) return; // ZXing continuous decoding in progress; skip one-off capture
 
     const imageSrc = webcamRef.current.getScreenshot({width: 1920, height: 1080});
     if (!imageSrc) return;
