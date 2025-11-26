@@ -46,11 +46,18 @@ export const readBarcodeFromImage = async (base64Image: string): Promise<string 
       // We intentionally use an absolute CDN URL that supports ESM; change the version if needed.
       let ZXing: any = null;
       try {
-        // @ts-ignore - dynamic CDN import (no local typings)
-        ZXing = await import('https://cdn.jsdelivr.net/npm/@zxing/browser@0.18.6/dist/index.min.js');
-        console.debug('barcodeService: ZXing imported via CDN');
+        // Try local package import first (more reliable across browsers and policies)
+        try {
+          ZXing = await import('@zxing/browser');
+          console.debug('barcodeService: ZXing imported from @zxing/browser local package');
+        } catch (localErr) {
+          console.debug('barcodeService: local @zxing/browser import failed, trying CDN', localErr);
+          // @ts-ignore - dynamic CDN import (no local typings)
+          ZXing = await import('https://cdn.jsdelivr.net/npm/@zxing/browser@0.18.6/dist/index.min.js');
+          console.debug('barcodeService: ZXing imported via CDN');
+        }
       } catch (err) {
-        console.warn('barcodeService: CDN ZXing import failed', err);
+        console.warn('barcodeService: ZXing import attempts failed', err);
       }
       const BrowserMultiFormatReader = ZXing?.BrowserMultiFormatReader || ZXing?.default?.BrowserMultiFormatReader;
       if (!BrowserMultiFormatReader) {

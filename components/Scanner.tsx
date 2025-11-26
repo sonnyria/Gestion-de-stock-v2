@@ -45,7 +45,14 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
     // Try to test ZXing CDN presence asynchronously (do not fail on error)
     (async () => {
       try {
-        const ZXing = await import('https://cdn.jsdelivr.net/npm/@zxing/browser@0.18.6/dist/index.min.js');
+        let ZXing: any = null;
+        try {
+          ZXing = await import('@zxing/browser');
+        } catch (localImportErr) {
+          // fallback to CDN if local import fails (possible if library not installed)
+          console.debug('Scanner: @zxing/browser local import failed, trying CDN', localImportErr);
+          ZXing = await import('https://cdn.jsdelivr.net/npm/@zxing/browser@0.18.6/dist/index.min.js');
+        }
         const BrowserMultiFormatReader = ZXing?.BrowserMultiFormatReader || ZXing?.default?.BrowserMultiFormatReader;
         setZxingAvailable(!!BrowserMultiFormatReader);
       } catch (err) {
