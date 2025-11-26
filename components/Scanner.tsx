@@ -1,6 +1,6 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { readBarcodeFromImage } from '../services/barcodeService.ts';
+import { readBarcodeFromImage, readBarcodeFromMediaElement } from '../services/barcodeService.ts';
 
 interface ScannerProps {
   onScan: (barcode: string) => void;
@@ -11,6 +11,9 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
   const webcamRef = useRef<Webcam>(null);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastResult, setLastResult] = useState<string | null>(null);
+  const [attempts, setAttempts] = useState(0);
+  const [detectionFails, setDetectionFails] = useState(0);
   
   // Torch / Flashlight state
   const [torchSupported, setTorchSupported] = useState(false);
@@ -113,24 +116,46 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
     const imageSrc = webcamRef.current.getScreenshot({width: 1920, height: 1080});
     if (!imageSrc) return;
 
+    // Start a scan cycle
     setScanning(true);
+    console.debug('Scanner: captureAndScan start');
     // Don't clear error here to avoid flickering if there is a persistent hardware error
     
     try {
+      setAttempts(a => a + 1);
     // Use local HTML5-based barcode detection (BarcodeDetector + ZXing fallback)
-    const barcode = await readBarcodeFromImage(imageSrc);
+    console.debug('Scanner: sending image to readBarcodeFromImage (length)', imageSrc && imageSrc.length);
+    let barcode = await readBarcodeFromImage(imageSrc);
+    // If no barcode found from the static image, try detection directly from the live video element
+    if (!barcode) {
+      const videoEl = webcamRef.current?.video as HTMLVideoElement | undefined;
+      if (videoEl) {
+        console.debug('Scanner: trying readBarcodeFromMediaElement live video fallback');
+        barcode = await readBarcodeFromMediaElement(videoEl);
+        console.debug('Scanner: readBarcodeFromMediaElement returned', barcode);
+      }
+    }
+    console.debug('Scanner: readBarcodeFromImage returned', barcode);
       
       if (barcode) {
+        console.info('Scanner: barcode detected:', barcode);
+        // Persist last result for on-screen debug
+        setLastResult(barcode);
+        setDetectionFails(0);
+        // Keep scanning 'true' to avoid immediate further detection cycles while parent handles the result
+        // Call the callback so the parent can handle the scan (e.g., open product details)
         onScan(barcode);
-        // Note: scanning remains true here until the parent component unmounts this scanner
-        // or changes the view, preventing duplicate scans.
-      } 
+        return; // Do not reset scanning here — parent should update view or unmount Scanner
+      }
+      setLastResult(null);
+      setDetectionFails(prev => prev + 1);
       // If not found, we just finish this cycle silently and let the interval trigger again.
     } catch (e) {
       console.error("Scan cycle error", e);
     } finally {
-      // Only reset scanning if we didn't find a barcode (to keep trying)
-      // If we found one, onScan triggers a view change anyway.
+      // Reset scanning state only when no barcode was found (we returned earlier on detection)
+      // This avoids immediately triggering another scan cycle if the parent hasn't unmounted the component yet.
+      console.debug('Scanner: captureAndScan no barcode; resetting scanning flag');
       setScanning(false);
     }
   }, [webcamRef, scanning, onScan]);
@@ -217,11 +242,23 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
              </div>
           </div>
         </div>
+
+        {/* Simple debug overlay: attempts and last read value */}
+        <div className="absolute top-24 right-4 z-40 text-xs text-gray-300 bg-black/60 px-3 py-2 rounded-lg border border-gray-700">
+          <div className="text-gray-400">Tentatives : <span className="text-white font-mono">{attempts}</span></div>
+          <div className="text-gray-400">Dernier : <span className="text-white font-mono">{lastResult || '—'}</span></div>
+        </div>
         
         {/* Error Message (Only for hardware errors now) */}
         {error && (
           <div className="absolute top-24 left-4 right-4 bg-red-600/90 text-white p-4 rounded-xl text-center shadow-xl z-20 border border-red-400 animate-fade-in">
             <p className="font-bold text-lg">⚠️ {error}</p>
+          </div>
+        )}
+        {detectionFails > 6 && (
+          <div className="absolute top-40 left-4 right-4 bg-yellow-800/90 text-white p-3 rounded-xl text-center shadow-xl z-20 border border-yellow-600 animate-fade-in">
+            <p className="font-bold">⚠️ Aucun code détecté</p>
+            <p className="text-sm mt-1">Essayez d'éclairer la zone, rapprocher le produit, ou entrer le code manuellement.</p>
           </div>
         )}
       </div>
