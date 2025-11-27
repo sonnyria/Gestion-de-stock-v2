@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import logger from './services/logger';
 import { Product, ViewState } from './types';
 import Scanner from './components/Scanner';
 import ProductForm from './components/ProductForm';
@@ -29,7 +30,7 @@ const App: React.FC = () => {
       try {
         setInventory(JSON.parse(savedInventory));
       } catch (e) {
-        console.error("Failed to load inventory", e);
+        logger.error("Failed to load inventory", e);
       }
     }
 
@@ -41,7 +42,7 @@ const App: React.FC = () => {
           setLowStockThreshold(parsed.threshold);
         }
       } catch (e) {
-        console.error("Failed to load settings", e);
+        logger.error("Failed to load settings", e);
       }
     }
 
@@ -104,7 +105,7 @@ const App: React.FC = () => {
           alert("Format de fichier invalide. Le fichier doit contenir une liste d'inventaire.");
         }
       } catch (err) {
-        console.error(err);
+        logger.error(err);
         alert("Erreur lors de la lecture du fichier JSON.");
       }
     };
@@ -191,6 +192,10 @@ const App: React.FC = () => {
 
   // --- Render ---
 
+  useEffect(() => {
+    logger.debug('App state change:', { view, activeBarcode });
+  }, [view, activeBarcode]);
+
   if (view === ViewState.SCANNER) {
     return <Scanner onScan={handleScan} onCancel={() => setView(ViewState.DASHBOARD)} />;
   }
@@ -201,7 +206,7 @@ const App: React.FC = () => {
         <ProductForm
             barcode={activeBarcode}
             onSave={handleAddProduct}
-            onCancel={() => { console.debug('App: ProductForm cancel clicked, clearing activeBarcode'); setView(ViewState.DASHBOARD); setActiveBarcode(null); }}
+            onCancel={() => { logger.debug('App: ProductForm cancel clicked, clearing activeBarcode'); setView(ViewState.DASHBOARD); setActiveBarcode(null); }}
         />
       </div>
     );
@@ -216,7 +221,7 @@ const App: React.FC = () => {
             product={product}
             onUpdateStock={handleUpdateStock}
             onDelete={handleDeleteProduct}
-            onClose={() => { console.debug('App: StockControl close clicked, clearing activeBarcode'); setView(ViewState.DASHBOARD); setActiveBarcode(null); }}
+            onClose={() => { logger.debug('App: StockControl close clicked, clearing activeBarcode'); setView(ViewState.DASHBOARD); setActiveBarcode(null); }}
             />
         </div>
       );

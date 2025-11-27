@@ -1,4 +1,6 @@
 // HTML5 barcode scanning service
+// Uses the `logger` service to gate debug logs behind the DEV flag
+import logger from './logger';
 // Uses the native BarcodeDetector when available, then falls back to a CDN-delivered ZXing browser build
 
 export const readBarcodeFromImage = async (base64Image: string): Promise<string | null> => {
@@ -11,7 +13,7 @@ export const readBarcodeFromImage = async (base64Image: string): Promise<string 
       const response = await fetch(base64Image);
       blob = await response.blob();
     } catch (e) {
-      console.error('Failed to fetch image blob from data URL', e);
+      logger.error('Failed to fetch image blob from data URL', e);
       return null;
     }
 
@@ -23,13 +25,13 @@ export const readBarcodeFromImage = async (base64Image: string): Promise<string 
         const detector = new (window as any).BarcodeDetector();
         const results = await detector.detect(imageBitmap as any);
         if (results?.length) {
-          console.debug('barcodeService: BarcodeDetector found', results);
+          logger.debug('barcodeService: BarcodeDetector found', results);
           return results[0].rawValue || null;
         }
-        console.debug('barcodeService: BarcodeDetector returned no results');
+        logger.debug('barcodeService: BarcodeDetector returned no results');
       } catch (err) {
         // Fall through to ZXing fallback; some browsers restrict BarcodeDetector
-        console.warn('barcodeService: BarcodeDetector failed or is restricted, falling back to library', err);
+        logger.warn('barcodeService: BarcodeDetector failed or is restricted, falling back to library', err);
       }
     }
 
@@ -49,19 +51,19 @@ export const readBarcodeFromImage = async (base64Image: string): Promise<string 
         // Try local package import first (more reliable across browsers and policies)
         try {
           ZXing = await import('@zxing/browser');
-          console.debug('barcodeService: ZXing imported from @zxing/browser local package');
+          logger.debug('barcodeService: ZXing imported from @zxing/browser local package');
         } catch (localErr) {
-          console.debug('barcodeService: local @zxing/browser import failed, trying CDN', localErr);
+          logger.debug('barcodeService: local @zxing/browser import failed, trying CDN', localErr);
           // @ts-ignore - dynamic CDN import (no local typings)
           ZXing = await import('https://cdn.jsdelivr.net/npm/@zxing/browser@0.18.6/dist/index.min.js');
-          console.debug('barcodeService: ZXing imported via CDN');
+          logger.debug('barcodeService: ZXing imported via CDN');
         }
       } catch (err) {
-        console.warn('barcodeService: ZXing import attempts failed', err);
+        logger.warn('barcodeService: ZXing import attempts failed', err);
       }
       const BrowserMultiFormatReader = ZXing?.BrowserMultiFormatReader || ZXing?.default?.BrowserMultiFormatReader;
       if (!BrowserMultiFormatReader) {
-        console.warn('ZXing BrowserMultiFormatReader not available via CDN fallback');
+        logger.warn('ZXing BrowserMultiFormatReader not available via CDN fallback');
       }
       const reader = BrowserMultiFormatReader ? new BrowserMultiFormatReader() : null;
       try {
@@ -88,18 +90,18 @@ export const readBarcodeFromImage = async (base64Image: string): Promise<string 
           }
         } catch (e2) {
           // Still failed, will return null below
-          console.warn('barcodeService: ZXing canvas decode failed', e2);
+          logger.warn('barcodeService: ZXing canvas decode failed', e2);
         }
       } finally {
         if (reader?.reset) reader.reset();
       }
     } catch (err) {
-      console.error('barcodeService: ZXing fallback failed', err);
+      logger.error('barcodeService: ZXing fallback failed', err);
     }
 
     return null;
   } catch (error) {
-    console.error('readBarcodeFromImage error', error);
+    logger.error('readBarcodeFromImage error', error);
     return null;
   }
 };
@@ -122,15 +124,15 @@ export const readBarcodeFromMediaElement = async (el: HTMLVideoElement | HTMLIma
           // createImageBitmap accepts HTMLVideoElement or HTMLImageElement
           imageBitmap = await createImageBitmap(el as any);
         } catch (bitmapErr) {
-          console.debug('barcodeService: createImageBitmap failed for element; falling back to direct detect', bitmapErr);
+          logger.debug('barcodeService: createImageBitmap failed for element; falling back to direct detect', bitmapErr);
         }
         const results = imageBitmap ? await detector.detect(imageBitmap as any) : await detector.detect(el as any);
         if (results?.length) {
-          console.debug('barcodeService: BarcodeDetector (element) found', results);
+          logger.debug('barcodeService: BarcodeDetector (element) found', results);
           return results[0].rawValue || null;
         }
       } catch (err) {
-        console.warn('barcodeService: BarcodeDetector (element) failed', err);
+        logger.warn('barcodeService: BarcodeDetector (element) failed', err);
       }
     }
 
@@ -140,7 +142,7 @@ export const readBarcodeFromMediaElement = async (el: HTMLVideoElement | HTMLIma
       try {
         ZXing = await import('https://cdn.jsdelivr.net/npm/@zxing/browser@0.18.6/dist/index.min.js');
       } catch (err) {
-        console.warn('barcodeService: CDN ZXing import failed (element)', err);
+        logger.warn('barcodeService: CDN ZXing import failed (element)', err);
       }
       const BrowserMultiFormatReader = ZXing?.BrowserMultiFormatReader || ZXing?.default?.BrowserMultiFormatReader;
       const reader = BrowserMultiFormatReader ? new BrowserMultiFormatReader() : null;
@@ -159,8 +161,8 @@ export const readBarcodeFromMediaElement = async (el: HTMLVideoElement | HTMLIma
                 const canvasResult = await reader.decodeFromCanvas(canvas);
                 if (canvasResult?.getText) return canvasResult.getText();
                 if ((canvasResult as any)?.text) return (canvasResult as any).text;
-              } catch (e) {
-                console.warn('barcodeService: ZXing decode from video canvas failed', e);
+                } catch (e) {
+                logger.warn('barcodeService: ZXing decode from video canvas failed', e);
               }
             }
           } else {
@@ -182,23 +184,23 @@ export const readBarcodeFromMediaElement = async (el: HTMLVideoElement | HTMLIma
                   if (canvasResult?.getText) return canvasResult.getText();
                   if ((canvasResult as any)?.text) return (canvasResult as any).text;
                 }
-              } catch (e2) {
-                console.warn('barcodeService: ZXing decode fallback for image failed', e2);
+                } catch (e2) {
+                logger.warn('barcodeService: ZXing decode fallback for image failed', e2);
               }
             }
           }
-        } catch (e) {
-          console.warn('barcodeService: ZXing element decode failed', e);
+          } catch (e) {
+          logger.warn('barcodeService: ZXing element decode failed', e);
         } finally {
           if (reader?.reset) reader.reset();
         }
       }
     } catch (err) {
-      console.error('barcodeService: ZXing element fallback failed', err);
+      logger.error('barcodeService: ZXing element fallback failed', err);
     }
     return null;
   } catch (error) {
-    console.error('readBarcodeFromMediaElement error', error);
+    logger.error('readBarcodeFromMediaElement error', error);
     return null;
   }
 };

@@ -1,4 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
+import logger from '../services/logger';
 import Webcam from 'react-webcam';
 import { readBarcodeFromImage, readBarcodeFromMediaElement } from '../services/barcodeService.ts';
 
@@ -21,6 +22,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
   const [torchOn, setTorchOn] = useState(false);
   const [barcodeDetectorAvailable, setBarcodeDetectorAvailable] = useState<boolean>(false);
   const [zxingAvailable, setZxingAvailable] = useState<boolean | null>(null);
+  const isDev = import.meta.env.DEV;
   const zxingReaderRef = useRef<any | null>(null);
   const zxingDecodingRef = useRef<boolean>(false);
 
@@ -38,7 +40,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
       const videoDevices = mediaDevices.filter(({ kind }) => kind === "videoinput");
       setDevices(videoDevices);
     } catch (e) {
-      console.error("Error enumerating devices:", e);
+      logger.error("Error enumerating devices:", e);
     }
   }, []);
 
@@ -51,15 +53,15 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
         let ZXing: any = null;
         try {
           ZXing = await import('@zxing/browser');
-        } catch (localImportErr) {
+          } catch (localImportErr) {
           // fallback to CDN if local import fails (possible if library not installed)
-          console.debug('Scanner: @zxing/browser local import failed, trying CDN', localImportErr);
+          logger.debug('Scanner: @zxing/browser local import failed, trying CDN', localImportErr);
           ZXing = await import('https://cdn.jsdelivr.net/npm/@zxing/browser@0.18.6/dist/index.min.js');
         }
         const BrowserMultiFormatReader = ZXing?.BrowserMultiFormatReader || ZXing?.default?.BrowserMultiFormatReader;
         setZxingAvailable(!!BrowserMultiFormatReader);
       } catch (err) {
-        console.warn('Scanner: ZXing import failed on mount', err);
+      logger.warn('Scanner: ZXing import failed on mount', err);
         setZxingAvailable(false);
       }
     })();
@@ -80,7 +82,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
       const reader = new BrowserMultiFormatReader();
       zxingReaderRef.current = reader;
       zxingDecodingRef.current = true;
-      console.debug('Scanner: starting continuous ZXing decode');
+      logger.debug('Scanner: starting continuous ZXing decode');
       // decodeFromVideoDevice can be given a deviceId and a video element
       reader.decodeFromVideoDevice(selectedDeviceId || null, videoEl, async (result, err) => {
         setAttempts(a => {
@@ -89,16 +91,16 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
           return newA;
         });
         if (result) {
-          console.info('Scanner: ZXing continuous detection result', result?.getText ? result.getText() : result?.text || result);
+                logger.info('Scanner: ZXing continuous detection result', result?.getText ? result.getText() : result?.text || result);
           // Stop the continuous decode loop and call onScan
-          try { reader.reset(); } catch (e) { console.warn('Scanner: reader.reset failed', e); }
+              try { reader.reset(); } catch (e) { logger.warn('Scanner: reader.reset failed', e); }
           zxingDecodingRef.current = false;
           setScanning(true);
           stopContinuousZxing();
           onScanWrap(result.getText ? result.getText() : (result as any).text);
         } else if (err) {
           // Not always true error; ignore unless persistent
-          // console.debug('Scanner: ZXing decode callback error', err);
+          // if (isDev) logger.debug('Scanner: ZXing decode callback error', err);
         }
       });
 
@@ -123,8 +125,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
               try {
                 const canvasResult = await reader.decodeFromCanvas(canvas);
                 if (canvasResult?.getText) {
-                  console.info('Scanner: ZXing canvas fallback found', canvasResult.getText());
-                  try { reader.reset(); } catch (err) { console.warn('Scanner: reader.reset failed', err); }
+                  logger.info('Scanner: ZXing canvas fallback found', canvasResult.getText());
+                  try { reader.reset(); } catch (err) { logger.warn('Scanner: reader.reset failed', err); }
                   zxingDecodingRef.current = false;
                   setScanning(true);
                   stopContinuousZxing();
@@ -133,16 +135,16 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
                 }
               } catch (err2) {
                 // ignore; will retry next interval
-                console.debug('Scanner: ZXing canvas fallback decode failed', err2);
+                  logger.debug('Scanner: ZXing canvas fallback decode failed', err2);
               }
             }
           } catch (e) {
-            console.warn('Scanner: fallback interval error', e);
+            logger.warn('Scanner: fallback interval error', e);
           }
         }
       }, 1500);
       } catch (e) {
-      console.warn('Scanner: startContinuousZxing error', e);
+      logger.warn('Scanner: startContinuousZxing error', e);
       zxingDecodingRef.current = false;
     }
     finally {
@@ -157,7 +159,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
         zxingReaderRef.current.reset();
         zxingReaderRef.current = null;
       }
-    } catch (err) { console.warn('Scanner: stopContinuousZxing error', err); }
+    } catch (err) { logger.warn('Scanner: stopContinuousZxing error', err); }
     zxingDecodingRef.current = false;
   }, []);
   // Ensure we also clear any fallback interval that might be running
@@ -210,8 +212,8 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (e) {
-      console.warn('Failed to export diagnostics', e);
+      } catch (ne) {
+        logger.warn('Scanner: readBarcodeFromMediaElement error', ne);
     }
   };
 
@@ -249,7 +251,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
   // Handle camera errors (e.g. saved device not found)
   const handleUserMediaError = useCallback(() => {
       if (selectedDeviceId) {
-          console.warn("Selected camera failed, falling back to default.");
+          logger.warn("Selected camera failed, falling back to default.");
           setSelectedDeviceId(undefined);
           localStorage.removeItem('scanner_device_id');
           setError(null); // Retry immediately
@@ -271,7 +273,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
               });
               setTorchOn(!torchOn);
           } catch (err) {
-              console.error("Failed to toggle torch", err);
+              logger.error("Failed to toggle torch", err);
           }
       }
   };
@@ -304,7 +306,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
 
     // Start a scan cycle
     setScanning(true);
-    console.debug('Scanner: captureAndScan start');
+    logger.debug('Scanner: captureAndScan start');
     // Don't clear error here to avoid flickering if there is a persistent hardware error
     
     try {
@@ -314,22 +316,22 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
     let barcode: string | null = null;
     if (videoEl) {
       try {
-        console.debug('Scanner: trying readBarcodeFromMediaElement (live video)');
+        logger.debug('Scanner: trying readBarcodeFromMediaElement (live video)');
         barcode = await readBarcodeFromMediaElement(videoEl);
-        console.debug('Scanner: readBarcodeFromMediaElement returned', barcode);
+        logger.debug('Scanner: readBarcodeFromMediaElement returned', barcode);
       } catch (e) {
-        console.warn('Scanner: readBarcodeFromMediaElement error', e);
+        logger.warn('Scanner: readBarcodeFromMediaElement error', e);
       }
     }
     if (!barcode && imageSrc) {
-      console.debug('Scanner: trying readBarcodeFromImage (screenshot)');
+    logger.debug('Scanner: trying readBarcodeFromImage (screenshot)');
       barcode = await readBarcodeFromImage(imageSrc);
-      console.debug('Scanner: readBarcodeFromImage returned', barcode);
+      logger.debug('Scanner: readBarcodeFromImage returned', barcode);
     }
-    console.debug('Scanner: readBarcodeFromImage returned', barcode);
+    logger.debug('Scanner: readBarcodeFromImage returned', barcode);
       
       if (barcode) {
-        console.info('Scanner: barcode detected:', barcode);
+        logger.info('Scanner: barcode detected:', barcode);
         // Persist last result for on-screen debug
         setLastResult(barcode);
         setDetectionFails(0);
@@ -345,11 +347,11 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
       setDetectionFails(prev => prev + 1);
       // If not found, we just finish this cycle silently and let the interval trigger again.
     } catch (e) {
-      console.error("Scan cycle error", e);
+      logger.error("Scan cycle error", e);
     } finally {
       // Reset scanning state only when no barcode was found (we returned earlier on detection)
       // This avoids immediately triggering another scan cycle if the parent hasn't unmounted the component yet.
-      console.debug('Scanner: captureAndScan no barcode; resetting scanning flag');
+      logger.debug('Scanner: captureAndScan no barcode; resetting scanning flag');
       setScanning(false);
     }
   }, [webcamRef, scanning, onScan]);
@@ -402,7 +404,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
                     </svg>
                 </button>
             )}
-        </div>
+          </div>
 
         <Webcam
           audio={false}
@@ -439,20 +441,21 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
         </div>
 
         {/* Simple debug overlay: attempts and last read value */}
-        <div className="absolute top-24 right-4 z-40 text-xs text-gray-300 bg-black/60 px-3 py-2 rounded-lg border border-gray-700">
+          {isDev && (
+            <div className="absolute top-24 right-4 z-40 text-xs text-gray-300 bg-black/60 px-3 py-2 rounded-lg border border-gray-700">
           <div className="text-gray-400">Tentatives : <span className="text-white font-mono">{attempts}</span></div>
           <div className="text-gray-400">Dernier : <span className="text-white font-mono">{lastResult || '—'}</span></div>
           <div className="text-gray-400 mt-1">Détecteur HTML5 : <span className="text-white font-mono">{barcodeDetectorAvailable ? 'Oui' : 'Non'}</span></div>
           <div className="text-gray-400">ZXing CDN : <span className="text-white font-mono">{zxingAvailable === null ? '...' : zxingAvailable ? 'OK' : 'NOK'}</span></div>
           <button onClick={exportDiagnostics} className="mt-2 w-full text-xs uppercase tracking-wide bg-gray-700/30 hover:bg-gray-700/50 text-white rounded p-1">Exporter diagnostics</button>
-        </div>
+        </div>)}
         
         {/* Error Message (Only for hardware errors now) */}
         {error && (
           <div className="absolute top-24 left-4 right-4 bg-red-600/90 text-white p-4 rounded-xl text-center shadow-xl z-20 border border-red-400 animate-fade-in">
             <p className="font-bold text-lg">⚠️ {error}</p>
-          </div>
-        )}
+            </div>
+          )}
         {detectionFails > 6 && (
           <div className="absolute top-40 left-4 right-4 bg-yellow-800/90 text-white p-3 rounded-xl text-center shadow-xl z-20 border border-yellow-600 animate-fade-in">
             <p className="font-bold">⚠️ Aucun code détecté</p>
@@ -468,6 +471,12 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onCancel }) => {
           className="absolute left-8 text-gray-400 hover:text-white font-medium py-3 px-6 rounded-full border border-gray-600 hover:bg-gray-800 transition"
         >
           Annuler
+        </button>
+        <button 
+          onClick={() => { try { stopContinuousZxing(); } catch (e) {}; onCancelWrap(); }}
+          className="absolute left-36 text-gray-400 hover:text-white font-medium py-3 px-6 rounded-full border border-gray-600 hover:bg-gray-800 transition"
+        >
+          Forcer fermeture
         </button>
         
         <div className="flex flex-col items-center">

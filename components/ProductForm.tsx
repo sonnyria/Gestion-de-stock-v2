@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import logger from '../services/logger';
 import { Product } from '../types.ts';
 
 interface ProductFormProps {
@@ -85,7 +86,11 @@ const ProductForm: React.FC<ProductFormProps> = ({ barcode, onSave, onCancel }) 
         <div className="flex gap-3 mt-6">
           <button
             type="button"
-            onClick={() => { console.debug('ProductForm: cancel button clicked'); onCancel(); }}
+            onClick={() => {
+              logger.debug('ProductForm: cancel button clicked');
+              try { (document.activeElement as HTMLElement)?.blur(); } catch (e) { /* ignore */ }
+              onCancel();
+            }}
             className="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-3 px-4 rounded-lg font-medium transition"
           >
             Annuler

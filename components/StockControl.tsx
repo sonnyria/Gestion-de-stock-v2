@@ -158,7 +158,7 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
 
   return (
     <div className="flex flex-col h-full bg-gray-900 text-white p-6 animate-fade-in">
-      <button onClick={onClose} className="mb-6 text-gray-400 hover:text-white flex items-center gap-2">
+      <button onClick={() => { try { (document.activeElement as HTMLElement)?.blur(); } catch (e) {} ; onClose(); }} className="mb-6 text-gray-400 hover:text-white flex items-center gap-2">
         ← Retour
       </button>
       

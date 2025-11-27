@@ -58,3 +58,58 @@ Le graphique propose également une agrégation des données pour lisser ou regr
 
 L'agrégation calcule la valeur du bucket selon la méthode choisie (moyenne, médiane, max). Pour l'option Journée, le bucket utilise la valeur maximale enregistrée pendant la journée.
 Vous pouvez choisir simultanément une période et une agrégation (par ex. 3 mois + Journée) pour mieux analyser les tendances.
+
+## Developer notes & debugging (quick start)
+
+If you need to debug scanner issues or modify behavior quickly, follow these steps:
+
+1. Run the dev server with debug logs enabled:
+
+   ```bash
+   npm install
+   npm run dev
+   ```
+
+   - Dev builds enable debug logs for `services/logger.ts` since `import.meta.env.DEV` will be `true`.
+
+2. Clear the service worker & localStorage if you encounter stale behavior:
+
+   - Unregister the service worker via DevTools > Application > Service Workers.
+   - Clear localStorage keys used by the app: `stock_inventory`, `stock_settings`, `scanner_device_id`.
+
+3. Diagnostic tools & data collection:
+
+   - The scanner overlay includes a diagnostics exporter — use it (dev only) to collect a JSON file containing:
+     - User agent
+     - Whether `BarcodeDetector` was available
+     - Whether ZXing import succeeded
+     - The selected device id
+     - How many attempts were made and the most recent detection result
+
+4. If the scanner is failing on iOS (WebKit):
+   - Confirm that `BarcodeDetector` is not available (Safari/Chrome on iOS won't support it).
+   - Check that ZXing fallback is available (we prefer local `@zxing/browser` import; if the local import fails, the app falls back to a CDN import).
+   - On iOS, ZXing can be slower; consider lowering canvas resolution (see `components/Scanner.tsx` videoConstraints) to improve performance.
+
+5. Fast recovery steps for field support:
+
+   - Force-stop the scanner UI, clear `scanner_device_id` and let the user reselect a camera.
+   - Use the Export Diagnostics button (Dev only) and attach the resulting JSON for follow-up.
+
+6. CI & Deployment:
+
+   - The repo uses a GitHub Actions workflow that deploys to GitHub Pages (peaceiris/actions-gh-pages). The build step runs `npm run build`.
+   - If the service worker is causing stale behavior in preview/production, unregister the worker and re-build after updates.
+
+7. Adding / removing debug log statements
+
+   - Use `services/logger.ts` as your single logging interface in code. `logger.debug` only prints in dev mode; `logger.info` prints in dev too; `logger.warn/error` always print.
+   - Add logs using these helpers to keep production console clean from debug noise.
+
+8. Local testing tips for camera/scanner issues:
+
+   - Test with a desktop camera or a known barcode image first (works in the browser).
+   - Confirm device permissions in browser settings and try switching the `scanner_device_id`.
+   - Clear localStorage `scanner_device_id` if the saved id is no longer valid.
+
+If you want, I can add an explicit 'Force close' button on the scanner overlay to ensure the scanner unmounts and resets readers immediately.
