@@ -59,6 +59,8 @@ Le graphique propose également une agrégation des données pour lisser ou regr
 L'agrégation calcule la valeur du bucket selon la méthode choisie (moyenne, médiane, max). Pour l'option Journée, le bucket utilise la valeur maximale enregistrée pendant la journée.
 Vous pouvez choisir simultanément une période et une agrégation (par ex. 3 mois + Journée) pour mieux analyser les tendances.
 
+Note: Lorsque vous utilisez une agrégation (ex: Journée), si aucun changement n'a eu lieu pendant une journée, la valeur affichée pour ce jour sera reportée depuis la journée précédente (carry-forward). Cela garantit que le niveau de stock apparent reste logique si aucun mouvement n'a été enregistré pour un produit sur une journée donnée.
+
 ## Developer notes & debugging (quick start)
 
 If you need to debug scanner issues or modify behavior quickly, follow these steps:

@@ -140,6 +140,32 @@ const StockControl: React.FC<StockControlProps> = ({ product, onUpdateStock, onC
       }
       return { timestamp, quantity: value, count };
     }).sort((a,b)=> a.timestamp - b.timestamp);
+
+    // Carry forward values for empty buckets: if a day has no samples, it should keep the last known quantity
+    // Find last known quantity before the first bucket if available
+    let lastKnown: number | null = null;
+    if (historyData.length) {
+      // find last point earlier than first bucket
+      const firstTs = result.length ? result[0].timestamp : null;
+      if (firstTs !== null) {
+        const earlier = historyData.filter(h => h.timestamp < firstTs);
+        if (earlier.length) lastKnown = earlier[earlier.length - 1].quantity;
+      }
+    }
+    // If no previous, try to initialize from the first non-zero bucket in result
+    for (const item of result) {
+      if (item.count > 0) { lastKnown = item.quantity; break; }
+    }
+    // Now forward-fill any zero-count buckets using lastKnown
+    for (let i = 0; i < result.length; i++) {
+      const item = result[i];
+      if (item.count === 0) {
+        // If we have a lastKnown, fill it; otherwise keep 0
+        item.quantity = (lastKnown !== null) ? lastKnown : 0;
+      } else {
+        lastKnown = item.quantity;
+      }
+    }
     return result;
   }, [historyData, agg, aggMethod, range]);
 
